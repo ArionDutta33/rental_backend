@@ -1,11 +1,18 @@
 import { Router } from "express";
-import { getAllBookings, login, register } from "../controller/user.controller";
+import {
+  activateProfile,
+  getAllBookings,
+  login,
+  register,
+} from "../controller/user.controller";
 import { upload } from "../middleware/multer";
 import { uploadCloudinary } from "../utils/cloudinary";
 import { isAuthenticated } from "../middleware/isAuthenticated";
+import { rateLimiter } from "../middleware/rateLimit";
 const router = Router();
-router.post("/register", upload.single("profile"), register);
-router.post("/login", login);
+router.post("/register", rateLimiter, upload.single("profile"), register);
+router.post("/login", rateLimiter, login);
+router.get("/user/activate", rateLimiter, activateProfile);
 router.post("/test", upload.single("profile"), async (req, res) => {
   try {
     if (

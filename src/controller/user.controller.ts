@@ -7,7 +7,11 @@ import User from "../models/user.model";
 import { ApiResponse } from "../utils/Response";
 import { uploadCloudinary } from "../utils/cloudinary";
 import Booking from "../models/booking.model";
-
+import { v4 as uuid } from "uuid";
+import { sendMail, transporter } from "../service/mailService";
+import { getActivationHtml } from "../utils/emailTemplate";
+import { redis } from "../utils/redis";
+import { AuthenticatedRequest } from "../middleware/isAuthenticated";
 export const register = async (
   req: Request,
   res: Response,
@@ -26,6 +30,11 @@ export const register = async (
     if (req.file) {
       uploadImage = await uploadCloudinary(req.file.path);
     }
+    const activationToken = uuid();
+    const activationLink = `http://localhost:3000/api/auth/user/activate?token=${activationToken}`;
+    const template = getActivationHtml(activationLink);
+    await redis.set(`activationToken-${activationToken}`, email, "EX", 1800);
+    await sendMail(email, "Profile verification", template);
     await User.create({
       email,
       password,
@@ -88,4 +97,42 @@ export const getAllBookings = async (
       .status(HTTP_STATUS.OK)
       .json(new ApiResponse("Bookings fetched", allBookings, true));
   } catch (error) {}
+};
+
+export const activateProfile = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const token = req.query.token as string;
+
+    if (!token) {
+      throw new ApiError(HTTP_STATUS.BAD_REQUEST, "Token is missing");
+    }
+
+    const userEmail = await redis.get(`activationToken-${token}`);
+
+    if (!userEmail) {
+      throw new ApiError(HTTP_STATUS.UNAUTHORIZED, "Invalid or expired token");
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { email: userEmail },
+      { isActive: true },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      throw new ApiError(HTTP_STATUS.NOT_FOUND, "User not found");
+    }
+
+    await redis.del(`activationToken-${token}`);
+
+    return res
+      .status(HTTP_STATUS.OK)
+      .json(new ApiResponse("Profile activated successfully", {}, true));
+  } catch (error) {
+    next(error);
+  }
 };

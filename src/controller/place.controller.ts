@@ -7,11 +7,8 @@ import { ApiError } from "../utils/ApiError";
 import HTTP_STATUS from "../utils/HttpStatus";
 import { ApiResponse } from "../utils/Response";
 import { getCoords } from "../service/encode";
-import Redis from "ioredis";
-const redis = new Redis({
-  host: "127.0.0.1",
-  port: 6379,
-});
+import { redis } from "../utils/redis";
+
 export const createPlace = async (
   req: AuthenticatedRequest,
   res: Response,
@@ -88,6 +85,22 @@ export const search = async (
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
 
+    const cacheKey = `places:search:${
+      term || "all"
+    }:page=${page}:limit=${limit}`;
+    const cachedData = await redis.get(cacheKey);
+    if (cachedData) {
+      return res
+        .status(HTTP_STATUS.OK)
+        .json(
+          new ApiResponse(
+            "Places fetched (from cache)",
+            JSON.parse(cachedData),
+            true
+          )
+        );
+    }
+
     const query = term
       ? {
           $or: [
@@ -101,27 +114,28 @@ export const search = async (
 
     const total = await Place.countDocuments(query);
     const places = await Place.find(query).skip(skip).limit(limit);
-    return res.status(HTTP_STATUS.OK).json(
-      new ApiResponse(
-        "Places fetched",
-        {
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
-          data: places,
-        },
-        true
-      )
-    );
+
+    const responseData = {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      data: places,
+    };
+
+    await redis.set(cacheKey, JSON.stringify(responseData), "EX", 600); // Cache for 10 minutes
+
+    return res
+      .status(HTTP_STATUS.OK)
+      .json(new ApiResponse("Places fetched", responseData, true));
   } catch (error) {
     console.log(error);
-
     return next(
       new ApiError(HTTP_STATUS.INTERNAL_SERVER_ERROR, "Search failed")
     );
   }
 };
+
 export const getById = async (
   req: Request,
   res: Response,

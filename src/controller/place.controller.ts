@@ -43,7 +43,6 @@ export const createPlace = async (
       );
     }
     const location = await getCoords(address);
-    console.log("before created");
 
     const createdPlace = await Place.create({
       ...req.body,
@@ -113,7 +112,10 @@ export const search = async (
       : {};
 
     const total = await Place.countDocuments(query);
-    const places = await Place.find(query).skip(skip).limit(limit);
+    const places = await Place.find(query)
+      .skip(skip)
+      .limit(limit)
+      .populate("user", "username email profileUrl");
 
     const responseData = {
       total,
@@ -123,7 +125,7 @@ export const search = async (
       data: places,
     };
 
-    await redis.set(cacheKey, JSON.stringify(responseData), "EX", 600); // Cache for 10 minutes
+    await redis.set(cacheKey, JSON.stringify(responseData), "EX", 600);
 
     return res
       .status(HTTP_STATUS.OK)
@@ -143,10 +145,6 @@ export const getById = async (
 ) => {
   try {
     const { id } = req.params;
-    const t = Date.now();
-    await redis.set("x", "123");
-    await redis.get("x");
-    console.log("Redis raw latency", Date.now() - t, "ms");
 
     const checkCached = await redis.get(`place${id}`);
     if (checkCached) {
@@ -155,7 +153,10 @@ export const getById = async (
         .status(HTTP_STATUS.OK)
         .json(new ApiResponse("Place found", JSON.parse(checkCached), true));
     }
-    const placeById = await Place.findById(id);
+    const placeById = await Place.findById(id).populate(
+      "user",
+      "username email profileUrl"
+    );
     if (!placeById) {
       throw new ApiError(HTTP_STATUS.NOT_FOUND, "No place found");
     }

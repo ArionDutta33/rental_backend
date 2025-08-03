@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   activateProfile,
   getAllBookings,
+  getUser,
   login,
   register,
 } from "../controller/user.controller";
@@ -12,6 +13,7 @@ import { rateLimiter } from "../middleware/rateLimit";
 const router = Router();
 router.post("/register", rateLimiter, upload.single("profile"), register);
 router.post("/login", rateLimiter, login);
+router.get("/user", getUser);
 router.get("/user/activate", rateLimiter, activateProfile);
 router.post("/test", upload.single("profile"), async (req, res) => {
   try {

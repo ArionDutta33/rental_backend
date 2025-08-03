@@ -18,6 +18,8 @@ export const sendMail = async (to: string, sub: string, body: string) => {
       html: body,
     });
   } catch (error) {
+    console.log(error);
+
     throw new ApiError(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       "Failed to send mail"

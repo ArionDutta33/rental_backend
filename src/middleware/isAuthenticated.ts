@@ -21,7 +21,7 @@ export const isAuthenticated = async (
 ) => {
   try {
     const authHeader = req.headers.authorization;
-
+    console.log("token chck", req.headers);
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       throw new ApiError(HTTP_STATUS.UNAUTHORIZED, "No token provided");
     }

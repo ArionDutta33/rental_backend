@@ -6,12 +6,19 @@ import { errorHandler } from "./utils/GlobalError";
 import userRoutes from "./route/user.route";
 import placeRoutes from "./route/place.route";
 import bookingRoutes from "./route/booking,route";
-
+import cors from "cors";
 import { connectDB } from "./db/db";
 const app: Express = express();
 connectDB();
 const PORT = process.env.PORT || 3000;
 app.use(morgan("dev"));
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST", "DELETE", "PATCH"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use("/api/auth", userRoutes);
 app.use("/api/place", placeRoutes);

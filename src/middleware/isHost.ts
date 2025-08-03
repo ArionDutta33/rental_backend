@@ -10,6 +10,7 @@ export const isHost = async (
 ) => {
   try {
     const isHost = req.user?.role;
+    console.log(req.user);
     if (isHost !== "HOST") {
       throw new ApiError(HTTP_STATUS.FORBIDDEN, "Acces denied");
     }

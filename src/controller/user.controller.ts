@@ -19,6 +19,8 @@ export const register = async (
 ) => {
   try {
     const { email, password, username, role } = req.body;
+    console.log("user email", email);
+
     if (!username || !email || !password) {
       throw new ApiError(HTTP_STATUS.BAD_REQUEST, "Invalid request");
     }
@@ -132,6 +134,33 @@ export const activateProfile = async (
     return res
       .status(HTTP_STATUS.OK)
       .json(new ApiResponse("Profile activated successfully", {}, true));
+  } catch (error) {
+    next(error);
+  }
+};
+export const getUser = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userEmail = req.user?.email;
+    const cachedUser = await redis.get(`${userEmail}`);
+    if (cachedUser) {
+      console.log("Cached user");
+      return res
+        .status(HTTP_STATUS.OK)
+        .json(new ApiResponse("Profile Fetched", cachedUser, true));
+    }
+    const user = await User.findOne({ email: userEmail }).select(
+      "profile username email"
+    );
+    await redis.set(`${userEmail}`, JSON.stringify(user), "EX", 1800);
+    console.log("non Cached user");
+
+    return res
+      .status(HTTP_STATUS.OK)
+      .json(new ApiResponse("Profile fetched", user, true));
   } catch (error) {
     next(error);
   }
